@@ -99,6 +99,7 @@ class ReadWorker(BaseWorker):
             QueueUrl=self.queue_url,
             MaxNumberOfMessages=self.batchsize,
             WaitTimeSeconds=self.long_polling_interval,
+            AttributeNames=["ApproximateReceiveCount"]
         ).get('Messages', [])
 
         logger.debug(
@@ -189,6 +190,7 @@ class ProcessWorker(BaseWorker):
         kwargs = message_body['kwargs']
         message_id = message['MessageId']
         receipt_handle = message['ReceiptHandle']
+        approx_receive_count = message.get('Attributes', {}).get("ApproximateReceiveCount", 1)
 
         task_name = full_task_path.split(".")[-1]
         task_path = ".".join(full_task_path.split(".")[:-1])
@@ -204,7 +206,8 @@ class ProcessWorker(BaseWorker):
                 conn=self.conn,
                 queue_url=queue_url,
                 message_id=message_id,
-                receipt_handle=receipt_handle
+                receipt_handle=receipt_handle,
+                approx_receive_count=approx_receive_count
             )
 
         current_time = time.time()
