@@ -157,11 +157,33 @@ class ProcessWorker(BaseWorker):
         self.interval = interval
         self._messages_to_process_before_shutdown = 100
 
+    def run_post_fork_hook(self):
+        """ Attempts to run a post_fork hook from a .pyqs file in the cwd. """
+
+        # check for the existence of a pyqs config file
+        if os.path.exists(".pyqs"):
+            with open(".pyqs") as f:
+                # evaluate the file
+                code = f.read()
+                pre_fork_scope = {}
+                exec(code, pre_fork_scope)
+
+                # try and run the post-fork hook
+                if "pyqs_post_fork" in pre_fork_scope:
+                    try:
+                        pre_fork_scope["pyqs_post_fork"]()
+                    except Exception:
+                        logger.exception("error running pyqs_post_fork")
+
     def run(self):
         # Set the child process to not receive any keyboard interrupts
         signal.signal(signal.SIGINT, signal.SIG_IGN)
 
         logger.info("Running ProcessWorker, pid: {}".format(os.getpid()))
+
+        # see if there are any post_fork hooks to run
+        self.run_post_fork_hook()
+
         messages_processed = 0
         while not self.should_exit.is_set() and self.parent_is_alive():
             processed = self.process_message()
