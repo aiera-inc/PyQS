@@ -90,7 +90,13 @@ class ReadWorker(BaseWorker):
             "Running ReadWorker: {}, pid: {}".format(
                 self.queue_url, os.getpid()))
         while not self.should_exit.is_set() and self.parent_is_alive():
-            self.read_message()
+            # if the queue is full, sleep for a bit
+            if self.internal_queue.full():
+                logger.info("Internal queue full, sleeping for 10 seconds")
+                time.sleep(10)
+            else:
+                self.read_message()
+
         self.internal_queue.close()
         self.internal_queue.cancel_join_thread()
 
@@ -136,6 +142,14 @@ class ReadWorker(BaseWorker):
                     "to the internal queue after {} seconds: {}"
                 ).format(self.visibility_timeout, message_body)  # noqa
                 logger.warning(msg)
+
+                # make the message available again to other workers
+                self.conn.change_message_visibility(
+                    QueueUrl=self.queue_url,
+                    ReceiptHandle=message['ReceiptHandle'],
+                    VisibilityTimeout=10
+                )
+
                 continue
             else:
                 logger.debug(
