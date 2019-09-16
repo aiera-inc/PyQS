@@ -144,11 +144,14 @@ class ReadWorker(BaseWorker):
                 logger.warning(msg)
 
                 # make the message available again to other workers
-                self.conn.change_message_visibility(
-                    QueueUrl=self.queue_url,
-                    ReceiptHandle=message['ReceiptHandle'],
-                    VisibilityTimeout=10
-                )
+                try:
+                    self.conn.change_message_visibility(
+                        QueueUrl=self.queue_url,
+                        ReceiptHandle=message['ReceiptHandle'],
+                        VisibilityTimeout=10
+                    )
+                except:
+                    logger.exception("Error resetting the visibility timeout of a message taken by the read worker")
 
                 continue
             else:
