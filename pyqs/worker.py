@@ -277,11 +277,14 @@ class ProcessWorker(BaseWorker):
             )
 
             # since the task failed, mark it is available again quickly (10 seconds)
-            self.conn.change_message_visibility(
-                QueueUrl=queue_url,
-                ReceiptHandle=receipt_handle,
-                VisibilityTimeout=10
-            )
+            try:
+                self.conn.change_message_visibility(
+                    QueueUrl=queue_url,
+                    ReceiptHandle=receipt_handle,
+                    VisibilityTimeout=10
+                )
+            except:
+                logger.warning("error changing message visibility during task exception")
 
             return True
         else:
