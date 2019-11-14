@@ -261,10 +261,10 @@ class ProcessWorker(BaseWorker):
             )
             return True
         try:
-            start_time = time.clock()
+            start_time = time.time()
             task(*args, **kwargs)
         except Exception:
-            end_time = time.clock()
+            end_time = time.time()
             logger.exception(
                 "Task {} raised error in {:.4f} seconds: with args: {} "
                 "and kwargs: {}: {}".format(
@@ -288,7 +288,7 @@ class ProcessWorker(BaseWorker):
 
             return True
         else:
-            end_time = time.clock()
+            end_time = time.time()
             self.conn.delete_message(
                 QueueUrl=queue_url,
                 ReceiptHandle=receipt_handle
@@ -323,7 +323,7 @@ class ManagerWorker(object):
         self.interval = interval
         self.prefetch_multiplier = prefetch_multiplier
         self.long_polling_interval = long_polling_interval
-        self.load_queue_prefixes(queue_prefixes)
+        self.queue_prefixes = queue_prefixes
         self.queue_urls = self.get_queue_urls_from_queue_prefixes(
             self.queue_prefixes)
         self.setup_internal_queue(worker_concurrency)
@@ -361,24 +361,34 @@ class ManagerWorker(object):
                 )
             )
 
-    def load_queue_prefixes(self, queue_prefixes):
-        self.queue_prefixes = queue_prefixes
-
-        logger.info("Loading Queues:")
-        for queue_prefix in queue_prefixes:
-            logger.info("[Queue]\t{}".format(queue_prefix))
-
     def get_queue_urls_from_queue_prefixes(self, queue_prefixes):
         conn = get_conn(**self.connection_args)
         queue_urls = conn.list_queues().get('QueueUrls', [])
         matching_urls = []
+
+        logger.info("Loading Queues:")
         for prefix in queue_prefixes:
+            logger.info("[Queue]\t{}".format(prefix))
             matching_urls.extend([
                 queue_url for queue_url in queue_urls if
                 fnmatch.fnmatch(queue_url.rsplit("/", 1)[1], prefix)
             ])
         logger.info("Found matching SQS Queues: {}".format(matching_urls))
         return matching_urls
+
+    def check_for_new_queues(self):
+        queue_urls = self.get_queue_urls_from_queue_prefixes(
+            self.queue_prefixes)
+        new_queue_urls = set(queue_urls) - set(self.queue_urls)
+        for new_queue_url in new_queue_urls:
+            logger.info("Found new queue\t{}".format(new_queue_url))
+            worker = ReadWorker(
+                new_queue_url, self.internal_queue, self.batchsize,
+                connection_args=self.connection_args,
+                parent_id=self._pid,
+            )
+            worker.start()
+            self.reader_children.append(worker)
 
     def setup_internal_queue(self, worker_concurrency):
         self.internal_queue = Queue(
@@ -406,9 +416,11 @@ class ManagerWorker(object):
         while self._running:
             counter = counter + 1
             if counter % 1000 == 0:
-                counter = 0
                 self.process_counts()
                 self.replace_workers()
+            if counter % 30000 == 0:
+                counter = 0
+                self.check_for_new_queues()
             time.sleep(0.001)
         self._exit()
 
