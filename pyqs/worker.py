@@ -449,7 +449,7 @@ class ManagerWorker(object):
     def _replace_reader_children(self):
         for index, reader in enumerate(self.reader_children):
             if not reader.is_alive():
-                logger.info(
+                logger.warning(
                     "Reader Process {} is no longer responding, "
                     "spawning a new reader.".format(reader.pid))
                 queue_url = reader.queue_url
@@ -466,9 +466,15 @@ class ManagerWorker(object):
     def _replace_worker_children(self):
         for index, worker in enumerate(self.worker_children):
             if not worker.is_alive():
-                logger.info(
-                    "Worker Process {} is no longer responding, "
-                    "spawning a new worker.".format(worker.pid))
+                if worker.should_exit.is_set():
+                    logger.info(
+                        "Worker Process {} shutdown cleanly, "
+                        "spawning a new worker.".format(worker.pid))
+                else:
+                    logger.warning(
+                        "Worker Process {} is no longer responding, "
+                        "spawning a new worker.".format(worker.pid))
+
                 self.worker_children.pop(index)
                 worker = ProcessWorker(
                     self.internal_queue, self.interval,
