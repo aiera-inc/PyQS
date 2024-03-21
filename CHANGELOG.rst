@@ -1,6 +1,25 @@
 Changelog
 ---------
 
+1.0.1
+~~~~~
+- Add MessageId for tracking task executions
+
+1.0.0
+~~~~~
+- Drop Py2 support
+- Add new SimpleProcessWorker (https://github.com/spulec/PyQS/pull/76)
+
+0.1.6
+~~~~~
+
+- Fix broken pickle of botocore clients.
+
+0.1.5
+~~~~~
+
+- Add events hooks for pre and post processors.
+
 0.1.4
 ~~~~~
 
