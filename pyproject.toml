@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "pyqs"
+version = "0.0.0"  
+description = "A simple task-queue for SQS."
+authors = ["Steve Pulec <spulec@gmail.com>"]
+readme = ["README.rst", "CHANGELOG.rst"]
+repository = "https://github.com/spulec/pyqs"
+packages = [{include = "pyqs"}]
+
+[tool.poetry.scripts]
+pyqs = "pyqs.main:main"
+
+[tool.poetry.dependencies]
+python = "^3.7"  # Assuming a reasonable minimum Python version
+boto3 = "^1.7.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
